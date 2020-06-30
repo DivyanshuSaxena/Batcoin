@@ -9,7 +9,7 @@ class Blockchain:
         self.transactions = []
         self.chain = []
         self.create_genesis_block()
-        self.last_hash = self.chain[-1].compute_hash()
+        self.last_hash = self.chain[-1].get_hash()
 
     def create_genesis_block(self):
         first_block = Block.genesis_block(datetime.now())
@@ -37,8 +37,8 @@ class Blockchain:
         Returns:
             Block: The created block along with POW
         """
-        # Compute the nonce of the block
         block = Block(0, self.transactions, datetime.now(), self.last_hash)
+        # Compute the nonce of the block
         nonce = 0
         block.set_nonce(nonce)
         return block

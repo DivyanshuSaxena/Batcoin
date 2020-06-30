@@ -1,5 +1,8 @@
 """Implementation to represent a single block in the custom blockchain"""
 
+import json
+from hashlib import sha256
+
 class Block:
     def __init__(self, block_id, transactions, timestamp, prev_hash=""):
         """Block Ctor
@@ -15,6 +18,7 @@ class Block:
         self.timestamp = timestamp
         self.prev_hash = prev_hash
         self.nonce = 0
+        self.hash = ''
 
     @classmethod
     def genesis_block(cls, timestamp):
@@ -42,4 +46,16 @@ class Block:
         Returns:
             String: hash of the current block
         """
-        return hash
+        block_string = json.dumps(self.__dict__, sort_keys=True)
+        self.hash = sha256(block_string.encode()).hexdigest()
+        return self.hash
+
+    def get_hash(self):
+        """Return the saved hash of the current instance
+
+        Returns:
+            str
+        """
+        if len(self.hash) == 0:
+            return self.compute_hash()
+        return self.hash
