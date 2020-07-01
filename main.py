@@ -3,11 +3,19 @@
 import os
 import sys
 from node import Node
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Array
 
 
-def spawn_process(node_id, is_miner, block_size, queues, timeout):
+def spawn_process(node_id, is_miner, block_size, keys, queues, timeout):
+    """Spawn a new Node process. Arguments same as those required by Node ctor"""
     node = Node(node_id, queues, is_miner, block_size)
+    public_key = node.generate_wallet()
+
+    # Add the public key to the combined array
+    with keys.get_lock():
+        keys[node_id] = public_key
+
+    # Start the operation of the node
     node.start_operation(timeout)
 
 
@@ -24,10 +32,11 @@ if __name__ == '__main__':
         queues.append(q)
 
     processes = []
+    public_keys = Array('s', [''] * num_nodes)
     for node_id in range(num_nodes):
         p = Process(target=spawn_process,
-                    args=(node_id, node_id < num_miners, block_size, queues,
-                          timeout))
+                    args=(node_id, node_id < num_miners, block_size,
+                          public_keys, queues, timeout))
         processes.append(p)
         p.start()
 
