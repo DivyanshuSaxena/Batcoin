@@ -1,4 +1,5 @@
 """Implementation of the blockchain protocol which will be used by all the nodes on the BatCoin network"""
+import json
 from block import *
 from datetime import datetime
 
@@ -12,21 +13,20 @@ class Blockchain:
         self.last_hash = self.chain[-1].get_hash()
 
     def create_genesis_block(self):
-        first_block = Block.genesis_block(datetime.now())
+        first_block = Block.genesis_block(str(datetime.now()))
         self.chain.append(first_block)
 
     def add_transaction(self, transaction):
-        """Check, validate the transaction and add it in the block
+        """Validate the transaction and add it to the unconfirmed block
 
         Args:
             transaction (string): Digitally signed JSON dump of the transaction
         """
         # Validate the transaction
         is_legal = True
-        validated_transaction = transaction
 
         if is_legal:
-            self.transactions.append(validated_transaction)
+            self.transactions.append(transaction)
             if len(self.transactions) == self.block_length:
                 next_block = self.proof_of_work()
                 self.chain.append(next_block)
@@ -37,7 +37,7 @@ class Blockchain:
         Returns:
             Block: The created block along with POW
         """
-        block = Block(0, self.transactions, datetime.now(), self.last_hash)
+        block = Block(0, self.transactions, str(datetime.now()), self.last_hash)
         # Compute the nonce of the block
         nonce = 0
         block.set_nonce(nonce)

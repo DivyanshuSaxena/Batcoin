@@ -8,16 +8,24 @@ The nodes of the blockchain are simulated using the Python Multiprocessing modul
 
 ## Transactions
 
-The transactions for Batcoin are stored as JSON files. The format is as follows:
+The transactions for Batcoin are stored as JSON objects. Transactions also hold the cryptographic digests The format is as follows:
 
 ```json
 {
   "amount" : "amount",
-  "sender" : "sender_id",
-  "receiver" : "receiver_id",
-  "timestamp" : "timestamp"
+  "receiver" : "receiver_key",
+  "timestamp" : "timestamp",
+  "signature" : "signature of the remaining json object"
 }
 ```
+
+### Confirmation of transactions
+
+Any newly generated transaction is added to the unconfirmed pool of transactions at each of the nodes. Any subsequent transactions which might be invalid because of this transaction are then dropped. A transaction gets confirmed once it gets added to the blockchain, in the form of a block.
+
+### Validating transactions
+
+Each transaction sends a certain node from one wallet to another. Each node, independently keeps a list of wallets and their balances, and verifies the transaction based on that list.
 
 ## Network Messages
 
@@ -25,8 +33,8 @@ The Batcoin nodes communicate with each other using network messages which carry
 
 ```json
 {
-  "sender": sender_node,
-  "message": transaction_or_block,
-  "pl": payload
+  "sender": "sender_node",
+  "message": "TRANSACTION/BLOCK",
+  "pl": "payload"
 }
 ```

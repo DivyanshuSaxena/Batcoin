@@ -1,7 +1,12 @@
 """Implementation to simulate the working of a node in a Blockchain network"""
 import time
+import json
+import random
 import Crypto
+from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from datetime import datetime
 from block import *
 from blockchain import *
 
@@ -42,6 +47,8 @@ class Node:
             str: public key of the node
         """
         random_gen = Crypto.Random.new().read
+
+        # Create a private-public key pair of 1024 bits each
         private_key = RSA.generate(1024, random_gen)
         public_key = private_key.publickey()
 
@@ -63,7 +70,8 @@ class Node:
             # Read from the queue
             obj = self.queues[self.id].get()
             if obj['message'] == 'TRANSACTION':
-                self.bc.add_transaction(obj['pl'])
+                if self.authenticate_transaction(obj['sender'], obj['pl']):
+                    self.bc.add_transaction(obj['pl'])
             else:
                 # Received a mined block from another node. Validate it
                 self.validate(obj['pl'])
@@ -86,5 +94,62 @@ class Node:
         Returns:
             str: Digitally signed transaction
         """
-        transaction = ''
-        return transaction
+        receiver = random.randint(0, len(self.keys) - 1)
+        receiver_key = self.keys[receiver]
+        amount = random.randint(1, 10)
+        timestamp = datetime.now()
+        transaction = {
+            "receiver": receiver_key,
+            "amount": amount,
+            "timestamp": str(timestamp)
+        }
+
+        # Perform a two step hashing and signing procedure
+        t_string = json.dumps(transaction, sort_keys=True)
+        t_digest = SHA.new(t_string.encode('utf-8'))
+
+        # Digitally sign the transaction digest with the sender's private key
+        signer = PKCS1_v1_5.new(self.private_key)
+        signature = signer.sign(t_digest)
+
+        # Return the combined transaction
+        transaction['signature'] = signature
+        return json.dumps(transaction, sort_keys=True)
+
+    def authenticate_transaction(self, sender_node, t_string):
+        """Authenticate if the transaction was actually sent by the receiver
+
+        Args:
+            sender_node (int): Node id of the sender
+            t_string (str): Digitally signed string of the transaction
+
+        Returns:
+            Boolean
+        """
+        sender_key = self.keys[sender_node]
+        transaction = json.loads(t_string)
+
+        raw_transaction = {}
+        if transaction['sender']:
+            raw_transaction['sender'] = transaction['sender']
+        else:
+            return False
+
+        if transaction['amount']:
+            raw_transaction['amount'] = transaction['amount']
+        else:
+            return False
+        
+        if transaction['timestamp']:
+            raw_transaction['timestamp'] = transaction['timestamp']
+        else:
+            return False
+
+        # Authenticate that the transaction was actually made by the sender
+        rt_string = json.dumps(raw_transaction, sort_keys=True)
+        rt_digest = SHA.new(rt_string.encode('utf-8'))
+
+        verifier = PKCS1_v1_5.new(sender_key)
+        if verifier.verify(rt_digest, transaction['signature']):
+            return True
+        return False

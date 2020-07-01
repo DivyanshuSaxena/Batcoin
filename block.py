@@ -10,8 +10,8 @@ class Block:
         Args:
             block_id (int): Unique ID to identify a block
             transactions (List): Each transaction is of type JSON
-            timestamp (datetime): Timestamp of generating the block.
-                                  Defaults to "".
+            timestamp (str): Timestamp of generating the block.
+            prev_hash (str): Hash of the previous block on the blockchain.
         """
         self.id = block_id
         self.transactions = transactions
@@ -25,7 +25,7 @@ class Block:
         """Ctor for creating the genesis block
 
         Args:
-            timestamp (datetime): time of creating the genesis block
+            timestamp (str): time of creating the genesis block
 
         Returns:
             Block instance
