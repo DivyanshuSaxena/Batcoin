@@ -12,9 +12,12 @@ The transactions for Batcoin are stored as JSON objects. Transactions also hold 
 
 ```json
 {
-  "amount" : "amount",
-  "receiver" : "receiver_key",
-  "timestamp" : "timestamp",
+  "tx": {
+    "type" : "INIT/TRANSFER/MINE",
+    "amount" : "amount",
+    "receiver" : "receiver_key",
+    "timestamp" : "timestamp"
+  },
   "signature" : "signature of the remaining json object"
 }
 ```

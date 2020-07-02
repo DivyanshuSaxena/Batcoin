@@ -39,6 +39,27 @@ class Node:
         for q in self.queues:
             q.put(obj)
 
+    def __sign(self, tx):
+        """Digitally sign the transaction with private key
+
+        Args:
+            tx (dict): Python dict of transaction
+
+        Returns:
+            str: JSON dump of digitally signed transaction
+        """
+        # Perform a two step hashing and signing procedure
+        t_string = json.dumps(tx, sort_keys=True)
+        t_digest = SHA.new(t_string.encode('utf-8'))
+
+        # Digitally sign the transaction digest with the sender's private key
+        signer = PKCS1_v1_5.new(self.private_key)
+        signature = signer.sign(t_digest)
+
+        # Return the combined transaction
+        transaction = {"tx": tx, "signature": signature}
+        return json.dumps(transaction, sort_keys=True)
+
     def generate_wallet(self, init_amt):
         """Generate a public and private key for the current node, which will act
         as the wallet for the node
@@ -56,7 +77,7 @@ class Node:
         self.private_key = private_key
 
         # Generate first transaction to self
-        self.generate(self.id, init_amt)
+        self.transaction_to_self('INIT')
         return public_key
 
     def start_operation(self, timeout):
@@ -76,8 +97,8 @@ class Node:
                 if self.authenticate_transaction(obj['sender'], obj['pl']):
                     self.bc.add_transaction(obj['pl'])
             else:
-                # Received a mined block from another node. Validate it
-                self.validate(obj['pl'])
+                # Received a mined block from another node. TODO: Validate it
+                self.validate_block(obj['pl'])
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
@@ -91,40 +112,52 @@ class Node:
             curr_time = time.time()
         print('[INFO]: Completed execution for ' + str(self.id))
 
-    def generate(self, receiver=-1, init_amt=-1):
-        """Return a newly created transaction
-        
+    def transaction_to_self(self, tx_type, amt=0):
+        """Create a digitally signed transaction to self. Required for initial
+        wallet amount, reward for mining and change to self (future UTXO impl)
+
         Args:
-            receiver (int, optional): Node id of receiver. Defaults to -1.
-            init_amt (int, optional): Amount to transfer. Defaults to -1.
+            tx_type (str): INIT/TRANSFER/MINE
+            amt (int, optional): Amount. Defaults to 0.
 
         Returns:
-            str: JSON dump of digitally signed transaction
+            str: JSON dump of digitally signed transaction to self
         """
-        if receiver == -1:
-            receiver_id = random.randint(0, len(self.keys) - 1)
+        if tx_type == 'INIT':
+            amount = self.bc.init_amt
+        elif tx_type == 'MINE':
+            amount = self.bc.reward
         else:
-            receiver_id = receiver
-        receiver_key = self.keys[receiver_id]
-        amount = random.randint(1, 10) if init_amt == -1 else init_amt
+            amount = amt
+        receiver_key = self.keys[self.id]
         timestamp = datetime.now()
-        transaction = {
+        tx = {
+            "type": tx_type,
             "receiver": receiver_key,
             "amount": amount,
             "timestamp": str(timestamp)
         }
 
-        # Perform a two step hashing and signing procedure
-        t_string = json.dumps(transaction, sort_keys=True)
-        t_digest = SHA.new(t_string.encode('utf-8'))
+        return self.__sign(tx)
 
-        # Digitally sign the transaction digest with the sender's private key
-        signer = PKCS1_v1_5.new(self.private_key)
-        signature = signer.sign(t_digest)
+    def generate(self):
+        """Return a newly created transaction
+        
+        Returns:
+            str: JSON dump of digitally signed transaction
+        """
+        receiver_id = random.randint(0, len(self.keys) - 1)
+        receiver_key = self.keys[receiver_id]
+        amount = random.randint(1, 10)
+        timestamp = datetime.now()
+        tx = {
+            "type": 'MINE',
+            "receiver": receiver_key,
+            "amount": amount,
+            "timestamp": str(timestamp)
+        }
 
-        # Return the combined transaction
-        transaction['signature'] = signature
-        return json.dumps(transaction, sort_keys=True)
+        return self.__sign(tx)
 
     def authenticate_transaction(self, sender_node, t_string):
         """Authenticate if the transaction was actually sent by the receiver
@@ -139,12 +172,8 @@ class Node:
         sender_key = self.keys[sender_node]
         transaction = json.loads(t_string)
 
-        if transaction['sender'] and transaction['amount'] and transaction[
-                'timestamp']:
-            raw_transaction = {}
-            raw_transaction['sender'] = transaction['sender']
-            raw_transaction['amount'] = transaction['amount']
-            raw_transaction['timestamp'] = transaction['timestamp']
+        if transaction['tx'] and transaction['signature']:
+            raw_transaction = transaction['tx']
 
             # Authenticate that the transaction was actually made by the sender
             rt_string = json.dumps(raw_transaction, sort_keys=True)
