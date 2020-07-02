@@ -1,36 +1,35 @@
 """Implementation to represent a single block in the custom blockchain"""
-
 import json
-from hashlib import sha256
+from Crypto.Hash import SHA
+from merkle import MerkleTree
+
 
 class Block:
-    def __init__(self, block_id, transactions, timestamp, prev_hash=""):
+    def __init__(self, transactions, arity, prev_hash=''):
         """Block Ctor
 
         Args:
-            block_id (int): Unique ID to identify a block
             transactions (List): Each transaction is of type JSON
-            timestamp (str): Timestamp of generating the block.
+            arity (int): Arity of the Merkle Tree to hold the block
             prev_hash (str): Hash of the previous block on the blockchain.
         """
-        self.id = block_id
         self.transactions = transactions
-        self.timestamp = timestamp
         self.prev_hash = prev_hash
         self.nonce = 0
-        self.hash = ''
+        self.merkle = MerkleTree(arity)
+
+        # Contruct tree and compute hash
+        self.merkle.construct_tree(self.transactions)
+        self.compute_hash()
 
     @classmethod
-    def genesis_block(cls, timestamp):
+    def genesis_block(cls):
         """Ctor for creating the genesis block
-
-        Args:
-            timestamp (str): time of creating the genesis block
 
         Returns:
             Block instance
         """
-        return cls(0, [], timestamp)
+        return cls([], 0)
 
     def set_nonce(self, nonce):
         """Set the nonce of the block after the node completes the Proof of Work
@@ -44,11 +43,11 @@ class Block:
         """Compute and return the hash of block instance
 
         Returns:
-            String: hash of the current block
+            String: hash of the current block header
         """
-        block_string = json.dumps(self.__dict__, sort_keys=True)
-        self.hash = sha256(block_string.encode()).hexdigest()
-        return self.hash
+        block_header = ''.join(
+            [self.prev_hash, str(self.nonce), self.merkle.root])
+        self.hash = SHA.new(block_header.encode('utf-8')).hexdigest()
 
     def get_hash(self):
         """Return the saved hash of the current instance
@@ -56,6 +55,6 @@ class Block:
         Returns:
             str
         """
-        if len(self.hash) == 0:
-            return self.compute_hash()
+        if not self.hash:
+            self.compute_hash()
         return self.hash
