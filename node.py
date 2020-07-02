@@ -39,7 +39,7 @@ class Node:
         for q in self.queues:
             q.put(obj)
 
-    def generate_wallet(self):
+    def generate_wallet(self, init_amt):
         """Generate a public and private key for the current node, which will act
         as the wallet for the node
 
@@ -54,6 +54,9 @@ class Node:
 
         # Save the private key and add the public key to the shared arary
         self.private_key = private_key
+
+        # Generate first transaction to self
+        self.generate(self.id, init_amt)
         return public_key
 
     def start_operation(self, timeout):
@@ -88,15 +91,22 @@ class Node:
             curr_time = time.time()
         print('[INFO]: Completed execution for ' + str(self.id))
 
-    def generate(self):
+    def generate(self, receiver=-1, init_amt=-1):
         """Return a newly created transaction
+        
+        Args:
+            receiver (int, optional): Node id of receiver. Defaults to -1.
+            init_amt (int, optional): Amount to transfer. Defaults to -1.
 
         Returns:
-            str: Digitally signed transaction
+            str: JSON dump of digitally signed transaction
         """
-        receiver = random.randint(0, len(self.keys) - 1)
-        receiver_key = self.keys[receiver]
-        amount = random.randint(1, 10)
+        if receiver == -1:
+            receiver_id = random.randint(0, len(self.keys) - 1)
+        else:
+            receiver_id = receiver
+        receiver_key = self.keys[receiver_id]
+        amount = random.randint(1, 10) if init_amt == -1 else init_amt
         timestamp = datetime.now()
         transaction = {
             "receiver": receiver_key,
@@ -129,27 +139,19 @@ class Node:
         sender_key = self.keys[sender_node]
         transaction = json.loads(t_string)
 
-        raw_transaction = {}
-        if transaction['sender']:
+        if transaction['sender'] and transaction['amount'] and transaction[
+                'timestamp']:
+            raw_transaction = {}
             raw_transaction['sender'] = transaction['sender']
-        else:
-            return False
-
-        if transaction['amount']:
             raw_transaction['amount'] = transaction['amount']
-        else:
-            return False
-        
-        if transaction['timestamp']:
             raw_transaction['timestamp'] = transaction['timestamp']
-        else:
-            return False
 
-        # Authenticate that the transaction was actually made by the sender
-        rt_string = json.dumps(raw_transaction, sort_keys=True)
-        rt_digest = SHA.new(rt_string.encode('utf-8'))
+            # Authenticate that the transaction was actually made by the sender
+            rt_string = json.dumps(raw_transaction, sort_keys=True)
+            rt_digest = SHA.new(rt_string.encode('utf-8'))
 
-        verifier = PKCS1_v1_5.new(sender_key)
-        if verifier.verify(rt_digest, transaction['signature']):
-            return True
+            verifier = PKCS1_v1_5.new(sender_key)
+            if verifier.verify(rt_digest, transaction['signature']):
+                return True
+
         return False

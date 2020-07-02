@@ -19,7 +19,8 @@ class Block:
         self.merkle = MerkleTree(arity)
 
         # Contruct tree and compute hash
-        self.merkle.construct_tree(self.transactions)
+        if arity != 0:
+            self.merkle.construct_tree(self.transactions)
         self.compute_hash()
 
     @classmethod
@@ -31,14 +32,6 @@ class Block:
         """
         return cls([], 0)
 
-    def set_nonce(self, nonce):
-        """Set the nonce of the block after the node completes the Proof of Work
-
-        Args:
-            nonce ([type]): [description]
-        """
-        self.nonce = nonce
-
     def compute_hash(self):
         """Compute and return the hash of block instance
 
@@ -46,8 +39,9 @@ class Block:
             String: hash of the current block header
         """
         block_header = ''.join(
-            [self.prev_hash, str(self.nonce), self.merkle.root])
+            [str(self.nonce), self.prev_hash, self.merkle.root.value])
         self.hash = SHA.new(block_header.encode('utf-8')).hexdigest()
+        return self.hash
 
     def get_hash(self):
         """Return the saved hash of the current instance
@@ -56,5 +50,5 @@ class Block:
             str
         """
         if not self.hash:
-            self.compute_hash()
+            return self.compute_hash()
         return self.hash

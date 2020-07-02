@@ -11,12 +11,8 @@ class MerkleNode:
         Args:
             arity (int): Arity of the Merkle Tree
         """
-        self.value = ''
         self.parent = None
         self.children = [None] * arity
-
-    def set_value(self, value):
-        self.value = value
 
     def set_parent(self, parent):
         self.parent = parent
@@ -29,6 +25,7 @@ class MerkleNode:
         combined = ''.join([child.value for child in self.children])
         c_digest = SHA.new(combined.encode('utf-8')).hexdigest()
         self.value = c_digest
+        return self.value
 
 
 class MerkleTree:
@@ -39,7 +36,7 @@ class MerkleTree:
             arity (int): Arity of the Merkle Tree
         """
         self.arity = arity
-        self.root = None
+        self.root = MerkleNode(arity)
 
     def construct_tree(self, transactions):
         """Construct the non-leaf nodes and set the root

@@ -6,7 +6,8 @@ from node import Node
 from multiprocessing import Process, Queue, Array
 
 
-def spawn_process(node_id, is_miner, block_size, keys, queues, timeout):
+def spawn_process(node_id, is_miner, block_size, keys, queues, timeout,
+                  init_amt):
     """Spawn a new Node process. Arguments same as those required by Node ctor"""
     node = Node(node_id, queues, is_miner, block_size)
     public_key = node.generate_wallet()
@@ -22,7 +23,8 @@ def spawn_process(node_id, is_miner, block_size, keys, queues, timeout):
 if __name__ == '__main__':
     num_nodes = int(sys.argv[1])
     block_size = int(sys.argv[2])
-    timeout = int(sys.argv[3])
+    init_amt = int(sys.argv[3])
+    timeout = int(sys.argv[4])
     num_miners = 5
 
     # Attach a queue for each node

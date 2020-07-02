@@ -39,9 +39,15 @@ The Batcoin nodes communicate with each other using network messages which carry
 }
 ```
 
+## Initialization
+
+At the initialization of the blockchain protocol, each node generates a genesis block. Since the contents of the genesis block are same, irrespective of the node, genesis blocks with the exact same hashes are generated in all of the nodes.
+
+Further, each node gets to generate a transaction providing itself `initial_amount` of coins at the start for doing transactions.
+
 ## Todo
 
-- [ ] Proof of work implementation for Nodes
+- [X] Proof of work implementation for Nodes
 - [ ] Create and broadcast blocks over network
 - [ ] Validation of blocks
 - [ ] Implementation of UTXO transactions needed for validating transactions
