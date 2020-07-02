@@ -38,3 +38,13 @@ The Batcoin nodes communicate with each other using network messages which carry
   "pl": "payload"
 }
 ```
+
+## Todo
+
+- [ ] Proof of work implementation for Nodes
+- [ ] Create and broadcast blocks over network
+- [ ] Validation of blocks
+- [ ] Implementation of UTXO transactions needed for validating transactions
+- [ ] Dishonest nodes
+- [ ] Smart Contracts
+- [ ] Experiments
