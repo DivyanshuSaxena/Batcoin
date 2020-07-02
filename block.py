@@ -32,6 +32,31 @@ class Block:
         """
         return cls([], 0)
 
+    def to_json(self):
+        """Return a json dump of the block to send out to other nodes
+
+        Returns:
+            str
+        """
+        blk_dict = {
+            "prev_hash": self.prev_hash,
+            "nonce": self.nonce,
+            "merkle_root": self.merkle.root.value,
+            "arity": self.merkle.arity,
+            "transactions": self.transactions
+        }
+        return blk_dict
+
+    def set_nonce(self, nonce):
+        """Used when the nonce has been calculated by some other node
+
+        Args:
+            nonce (int)
+        """
+        self.nonce = nonce
+        # Re-compute hash since the nonce has changed
+        self.compute_hash()
+
     def compute_hash(self):
         """Compute and return the hash of block instance
 

@@ -42,7 +42,7 @@ class MerkleTree:
         """Construct the non-leaf nodes and set the root
 
         Args:
-            transactions (List): List of JSON dumps of transactions in Merkle Tree
+            transactions (List): List of JSON of transactions in Merkle Tree
         """
         curr_level = []
 

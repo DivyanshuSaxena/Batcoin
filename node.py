@@ -39,26 +39,30 @@ class Node:
         for q in self.queues:
             q.put(obj)
 
-    def __sign(self, tx):
+    def __sign(self, message, pl):
         """Digitally sign the transaction with private key
 
         Args:
-            tx (dict): Python dict of transaction
+            message (str): TRANSACTION/BLOCK
+            pl (dict): Python dict of the payload
 
         Returns:
             str: JSON dump of digitally signed transaction
         """
         # Perform a two step hashing and signing procedure
-        t_string = json.dumps(tx, sort_keys=True)
-        t_digest = SHA.new(t_string.encode('utf-8'))
+        pl_string = json.dumps(pl, sort_keys=True)
+        pl_digest = SHA.new(pl_string.encode('utf-8'))
 
         # Digitally sign the transaction digest with the sender's private key
         signer = PKCS1_v1_5.new(self.private_key)
-        signature = signer.sign(t_digest)
+        signature = signer.sign(pl_digest)
 
         # Return the combined transaction
-        transaction = {"tx": tx, "signature": signature}
-        return json.dumps(transaction, sort_keys=True)
+        if message == 'TRANSACTION':
+            payload = {"tx": pl, "signature": signature}
+        else:
+            payload = {"blk": pl, "signature": signature}
+        return json.dumps(payload, sort_keys=True)
 
     def generate_wallet(self, init_amt):
         """Generate a public and private key for the current node, which will act
@@ -93,12 +97,16 @@ class Node:
         while curr_time - start_time > timeout:
             # Read from the queue
             obj = self.queues[self.id].get()
-            if obj['message'] == 'TRANSACTION':
-                if self.authenticate_transaction(obj['sender'], obj['pl']):
-                    self.bc.add_transaction(obj['pl'])
-            else:
-                # Received a mined block from another node. TODO: Validate it
-                self.validate_block(obj['pl'])
+            if self.authenticate(obj):
+                if obj['message'] == 'TRANSACTION':
+                    next_block = self.bc.add_transaction(obj['pl'])
+                    if next_block:
+                        # Digitally sign and then, broadcast block
+                        block = self.__sign('BLOCK', next_block.to_json())
+                        self.__node_stub('BLOCK', block)
+                else:
+                    # Received a mined block from another node.
+                    self.bc.add_block(obj['pl'])
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
@@ -138,7 +146,7 @@ class Node:
             "timestamp": str(timestamp)
         }
 
-        return self.__sign(tx)
+        return self.__sign('TRANSACTION', tx)
 
     def generate(self):
         """Return a newly created transaction
@@ -157,30 +165,38 @@ class Node:
             "timestamp": str(timestamp)
         }
 
-        return self.__sign(tx)
+        return self.__sign('TRANSACTION', tx)
 
-    def authenticate_transaction(self, sender_node, t_string):
-        """Authenticate if the transaction was actually sent by the receiver
+    def authenticate(self, obj):
+        """Authenticate if the transaction/block was actually sent by the receiver
 
         Args:
-            sender_node (int): Node id of the sender
-            t_string (str): Digitally signed string of the transaction
+            obj (dict): Python dict of object read from queue
 
         Returns:
             Boolean
         """
-        sender_key = self.keys[sender_node]
-        transaction = json.loads(t_string)
+        sender_node = obj['sender']
+        pl_string = obj['pl']
 
-        if transaction['tx'] and transaction['signature']:
-            raw_transaction = transaction['tx']
+        sender_key = self.keys[sender_node]
+        payload = json.loads(pl_string)
+
+        if payload['signature']:
+            if obj['message'] == 'TRANSACTION' and payload['tx']:
+                raw_payload = payload['tx']
+            elif obj['message'] == 'BLOCK' and payload['blk']:
+                raw_payload = payload['blk']
+            else:
+                return False
 
             # Authenticate that the transaction was actually made by the sender
-            rt_string = json.dumps(raw_transaction, sort_keys=True)
+            rt_string = json.dumps(raw_payload, sort_keys=True)
             rt_digest = SHA.new(rt_string.encode('utf-8'))
 
             verifier = PKCS1_v1_5.new(sender_key)
-            if verifier.verify(rt_digest, transaction['signature']):
+            if verifier.verify(rt_digest, payload['signature']):
                 return True
 
+        # Neither is the object an authentic block nor a transaction
         return False

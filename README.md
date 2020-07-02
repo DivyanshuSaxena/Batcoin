@@ -6,6 +6,18 @@ Custom cryptocurrency implementation using Python
 
 The nodes of the blockchain are simulated using the Python Multiprocessing module.
 
+### Network Messages
+
+The Batcoin nodes communicate with each other using network messages which carry the necessary information. These communications work in a broadcast format currently, for the sake of simplicity. The format of these Network messages is as follows:
+
+```json
+{
+  "sender": "sender_node",
+  "message": "TRANSACTION/BLOCK",
+  "pl": "payload"
+}
+```
+
 ## Transactions
 
 The transactions for Batcoin are stored as JSON objects. Transactions also hold the cryptographic digests The format is as follows:
@@ -30,15 +42,22 @@ Any newly generated transaction is added to the unconfirmed pool of transactions
 
 Each transaction sends a certain node from one wallet to another. Each node, independently keeps a list of wallets and their balances, and verifies the transaction based on that list.
 
-## Network Messages
+## Blocks
 
-The Batcoin nodes communicate with each other using network messages which carry the necessary information. These communications work in a broadcast format currently, for the sake of simplicity. The format of these Network messages is as follows:
+The blocks for Batcoin follow the following message format:
 
 ```json
 {
-  "sender": "sender_node",
-  "message": "TRANSACTION/BLOCK",
-  "pl": "payload"
+  "blk": {
+    "prev_hash" : "prev_hash",
+    "nonce" : "nonce",
+    "merkle_root" : "merkle_root",
+    "arity" : "arity",
+    "transactions" : [
+      // Transactions
+    ],
+  },
+  "signature": "signature",
 }
 ```
 
@@ -51,8 +70,8 @@ Further, each node gets to generate a transaction providing itself `initial_amou
 ## Todo
 
 - [X] Proof of work implementation for Nodes
-- [ ] Create and broadcast blocks over network
-- [ ] Validation of blocks
+- [X] Create and broadcast blocks over network
+- [X] Validation of blocks
 - [ ] Implementation of UTXO transactions needed for validating transactions
 - [ ] Dishonest nodes
 - [ ] Smart Contracts
