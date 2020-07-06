@@ -1,32 +1,69 @@
 """Implementation to simulate the working of a node in a Blockchain network"""
 import time
 import json
+import base64
 import random
 import Crypto
 from Crypto.Hash import SHA
-from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from datetime import datetime
 from block import *
 from blockchain import *
 
+debug_level = 'debug'
+
+
+def print_level(dl, node_id, string):
+    """Print statements as per debug level
+    
+    Arguments:
+        dl {String} -- Debug Level - basic/info/debug
+        node_id {Integer} -- Node id for which statement is to be printed
+        string {String} -- Print statement
+    """
+    global debug_level
+    if dl == 'basic':
+        print('[NOTE ' + str(node_id) + ']: ' + string)
+    if debug_level == 'info' and dl == 'info':
+        print('[INFO ' + str(node_id) + ']: ' + string)
+    if debug_level == 'debug':
+        if dl == 'info':
+            print('[INFO ' + str(node_id) + ']: ' + string)
+        elif dl == 'debug':
+            print('[DEBUG ' + str(node_id) + ']: ' + string)
+
 
 class Node:
-    def __init__(self, node_id, is_miner, block_size, keys, queues):
+    def __init__(self, node_id, private_key, is_miner, block_size, keys,
+                 queues):
         """Node Ctor
 
         Args:
             node_id (int): Node id with which the node is to be created
+            private_key (_RSAObj): RSA Obj for the current node instance
             is_miner (bool): Whether the given node must function as a miner
             block_size (int): Number of transactions in a single block
-            keys (Array): List of public keys for all nodes
+            keys (multiprocessing.Array[str]): List of public keys for all nodes
             queues (List): List of Queues for each node on the network
         """
         self.id = node_id
+        self.private_key = private_key
         self.is_miner = is_miner
         self.keys = keys
         self.queues = queues
-        self.bc = Blockchain(block_size)
+        self.bc = Blockchain(block_size, difficulty=2)
+
+    def __get_key(self, node_id):
+        """Get the public key associated with node `node_id`
+
+        Args:
+            node_id (int)
+
+        Returns:
+            str
+        """
+        key_str = self.keys[node_id].key
+        return key_str
 
     def __node_stub(self, message, payload):
         """Stub process to send broadcast message to all nodes
@@ -57,32 +94,15 @@ class Node:
         signer = PKCS1_v1_5.new(self.private_key)
         signature = signer.sign(pl_digest)
 
+        # Crypto generates Byte-string - convert into unicode string for JSON dump
+        signature_string = base64.b64encode(signature).decode('utf-8')
+
         # Return the combined transaction
         if message == 'TRANSACTION':
-            payload = {"tx": pl, "signature": signature}
+            payload = {"tx": pl, "signature": signature_string}
         else:
-            payload = {"blk": pl, "signature": signature}
+            payload = {"blk": pl, "signature": signature_string}
         return json.dumps(payload, sort_keys=True)
-
-    def generate_wallet(self, init_amt):
-        """Generate a public and private key for the current node, which will act
-        as the wallet for the node
-
-        Returns:
-            str: public key of the node
-        """
-        random_gen = Crypto.Random.new().read
-
-        # Create a private-public key pair of 1024 bits each
-        private_key = RSA.generate(1024, random_gen)
-        public_key = private_key.publickey()
-
-        # Save the private key and add the public key to the shared arary
-        self.private_key = private_key
-
-        # Generate first transaction to self
-        self.transaction_to_self('INIT')
-        return public_key
 
     def start_operation(self, timeout):
         """Start operation of the blockchain node and end at timeout
@@ -90,9 +110,16 @@ class Node:
         Args:
             timeout (int): Time for which the node runs (in ms)
         """
+        print_level(
+            'debug', self.id, 'Operation started with keys: ' +
+            ''.join([x.key for x in self.keys]))
+
         start_time = time.time()
         curr_time = time.time()
+
+        # Start with initial balance
         last_transaction = start_time
+        self.transaction_to_self('INIT')
 
         while curr_time - start_time > timeout:
             # Read from the queue
@@ -127,9 +154,6 @@ class Node:
         Args:
             tx_type (str): INIT/TRANSFER/MINE
             amt (int, optional): Amount. Defaults to 0.
-
-        Returns:
-            str: JSON dump of digitally signed transaction to self
         """
         if tx_type == 'INIT':
             amount = self.bc.init_amt
@@ -137,7 +161,7 @@ class Node:
             amount = self.bc.reward
         else:
             amount = amt
-        receiver_key = self.keys[self.id]
+        receiver_key = self.__get_key(self.id)
         timestamp = datetime.now()
         tx = {
             "type": tx_type,
@@ -146,7 +170,8 @@ class Node:
             "timestamp": str(timestamp)
         }
 
-        return self.__sign('TRANSACTION', tx)
+        transaction = self.__sign('TRANSACTION', tx)
+        self.__node_stub('TRANSACTION', transaction)
 
     def generate(self):
         """Return a newly created transaction
@@ -155,7 +180,7 @@ class Node:
             str: JSON dump of digitally signed transaction
         """
         receiver_id = random.randint(0, len(self.keys) - 1)
-        receiver_key = self.keys[receiver_id]
+        receiver_key = self.__get_key(receiver_id)
         amount = random.randint(1, 10)
         timestamp = datetime.now()
         tx = {
@@ -179,7 +204,7 @@ class Node:
         sender_node = obj['sender']
         pl_string = obj['pl']
 
-        sender_key = self.keys[sender_node]
+        sender_key = self.__get_key(sender_node)
         payload = json.loads(pl_string)
 
         if payload['signature']:
@@ -191,11 +216,12 @@ class Node:
                 return False
 
             # Authenticate that the transaction was actually made by the sender
+            signature = base64.b64decode(payload['signature'])
             rt_string = json.dumps(raw_payload, sort_keys=True)
             rt_digest = SHA.new(rt_string.encode('utf-8'))
 
             verifier = PKCS1_v1_5.new(sender_key)
-            if verifier.verify(rt_digest, payload['signature']):
+            if verifier.verify(rt_digest, signature):
                 return True
 
         # Neither is the object an authentic block nor a transaction

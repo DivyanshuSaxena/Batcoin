@@ -2,6 +2,18 @@
 
 Custom cryptocurrency implementation using Python
 
+## Usage
+
+Use the `main.py` file to spawn nodes, generate wallet key-pairs, share public keys, and initial transactions.
+
+```console
+>>> python main.py <num-nodes> <block-size> <timeout-in-seconds>
+```
+
+### Debuggind
+
+The project utilizes function `print_level()` for printing at three different logging levels: basic/info/debug.
+
 ## Nodes
 
 The nodes of the blockchain are simulated using the Python Multiprocessing module.
