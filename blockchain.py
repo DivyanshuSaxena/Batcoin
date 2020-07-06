@@ -107,12 +107,18 @@ class Blockchain:
         Returns:
             Block: The created block along with POW
         """
+        print('Starting POW')
         block = Block(self.transactions, 2, self.last_hash)
+
+        max_nonce = 2**32
+        target = 2**(160 - self.difficulty)
+        print(target)
 
         # Compute the nonce of the block
         computed_hash = block.compute_hash()
-        while not computed_hash.startswith('0' * self.difficulty):
+        while int(computed_hash, 16) > target:
             block.nonce += 1
             computed_hash = block.compute_hash()
 
+        print('Found nonce. Hash: ' + computed_hash)
         return block
