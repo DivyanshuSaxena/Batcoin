@@ -15,6 +15,9 @@ class MerkleNode:
         self.children = [None] * arity
         self.value = ''
 
+    def set_value(self, value):
+        self.value = value
+
     def set_parent(self, parent):
         self.parent = parent
 

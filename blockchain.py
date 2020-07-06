@@ -107,7 +107,7 @@ class Blockchain:
         Returns:
             Block: The created block along with POW
         """
-        block = Block(self.transactions, self.last_hash)
+        block = Block(self.transactions, 2, self.last_hash)
 
         # Compute the nonce of the block
         computed_hash = block.compute_hash()

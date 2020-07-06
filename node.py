@@ -5,6 +5,7 @@ import base64
 import random
 import Crypto
 from Crypto.Hash import SHA
+from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from datetime import datetime
 from block import *
@@ -73,6 +74,7 @@ class Node:
             payload (str): Hash of the transaction or the block
         """
         obj = {'sender': self.id, 'message': message, 'pl': payload}
+        print_level('debug', self.id, 'Broadcasting: ' + payload)
         for q in self.queues:
             q.put(obj)
 
@@ -110,9 +112,7 @@ class Node:
         Args:
             timeout (int): Time for which the node runs (in ms)
         """
-        print_level(
-            'debug', self.id, 'Operation started with keys: ' +
-            ''.join([x.key for x in self.keys]))
+        print_level('basic', self.id, 'Operation started')
 
         start_time = time.time()
         curr_time = time.time()
@@ -121,7 +121,7 @@ class Node:
         last_transaction = start_time
         self.transaction_to_self('INIT')
 
-        while curr_time - start_time > timeout:
+        while curr_time - start_time < timeout:
             # Read from the queue
             obj = self.queues[self.id].get()
             if self.authenticate(obj):
@@ -204,7 +204,11 @@ class Node:
         sender_node = obj['sender']
         pl_string = obj['pl']
 
+        print_level('debug', self.id,
+                    'Received from ' + str(sender_node) + ': ' + pl_string)
+
         sender_key = self.__get_key(sender_node)
+        key_obj = RSA.importKey(sender_key)
         payload = json.loads(pl_string)
 
         if payload['signature']:
@@ -220,9 +224,11 @@ class Node:
             rt_string = json.dumps(raw_payload, sort_keys=True)
             rt_digest = SHA.new(rt_string.encode('utf-8'))
 
-            verifier = PKCS1_v1_5.new(sender_key)
+            verifier = PKCS1_v1_5.new(key_obj)
             if verifier.verify(rt_digest, signature):
+                print_level('debug', self.id, 'Message authenticated')
                 return True
 
         # Neither is the object an authentic block nor a transaction
+        print_level('debug', self.id, 'Message unauthenticated')
         return False

@@ -10,7 +10,7 @@ Use the `main.py` file to spawn nodes, generate wallet key-pairs, share public k
 >>> python main.py <num-nodes> <block-size> <timeout-in-seconds>
 ```
 
-### Debuggind
+### Debugging
 
 The project utilizes function `print_level()` for printing at three different logging levels: basic/info/debug.
 
