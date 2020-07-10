@@ -14,6 +14,11 @@ class Blockchain:
         self.chain = []
         self.create_genesis_block()
 
+    def __str__(self):
+        chain = 'Chain: \n'
+        blockchain = ',\n'.join([block.get_hash() for block in self.chain])
+        return chain + blockchain
+
     def create_genesis_block(self):
         first_block = Block.genesis_block()
         self.last_hash = first_block.get_hash()

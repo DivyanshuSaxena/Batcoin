@@ -1,4 +1,5 @@
 """Implementation to simulate the working of a node in a Blockchain network"""
+import os
 import time
 import json
 import base64
@@ -54,6 +55,16 @@ class Node:
         self.queues = queues
         self.bc = Blockchain(block_size, difficulty=2)
 
+        # Initialize log file
+        log_dir = './logs/'
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        log_file = log_dir + 'log_' + str(self.id) + '.txt'
+        self.logfile = open(log_file, 'w')
+
+        # Log Initial state
+        self.__log('STATE', message='Initial State:')
+
     def __get_key(self, node_id):
         """Get the public key associated with node `node_id`
 
@@ -71,10 +82,14 @@ class Node:
 
         Args:
             message (str): 'TRANSACTION/BLOCK'
-            payload (str): Hash of the transaction or the block
+            payload (str): JSON dump of the transaction or the block
         """
         obj = {'sender': self.id, 'message': message, 'pl': payload}
         print_level('debug', self.id, 'Broadcasting: ' + payload)
+        if message == 'TRANSACTION':
+            # Log the generated transaction
+            self.__log('TRANSACTION', 'Broadcasting transaction:', payload)
+
         for q in self.queues:
             q.put(obj)
 
@@ -105,6 +120,23 @@ class Node:
         else:
             payload = {"blk": pl, "signature": signature_string}
         return json.dumps(payload, sort_keys=True)
+
+    def __log(self, log_type, message='', payload=''):
+        """Write message `log` onto logs of this node
+
+        Args:
+            log_type (str): STATE/TRANSACTION
+            message (str, optional): Message to print before log. Defaults to ''.
+            payload (str, optional): Transaction to log. Defaults to ''.
+        """
+        if log_type == 'STATE':
+            # Print the state of the node
+            self.logfile.write(message + '\nSTATE:\n' + str(self.bc) + '\n\n')
+        else:
+            self.logfile.write(
+                message + '\nTRANSACTION:\n' +
+                json.dumps(json.loads(payload), indent=2, sort_keys=True) +
+                '\n\n')
 
     def start_operation(self, timeout):
         """Start operation of the blockchain node and end at timeout
@@ -144,6 +176,12 @@ class Node:
                         print_level(
                             'debug', self.id, 'Add BLOCK from ' +
                             str(obj['sender']) + ' result: ' + str(result))
+
+                        # Log if any changes to blockchain state
+                        if result:
+                            self.__log(
+                                'STATE',
+                                'Status after block added to blockchain')
             except:
                 pass
 
