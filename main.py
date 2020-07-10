@@ -41,14 +41,14 @@ def spawn_process(node_id, private_key, is_miner, block_size, keys, queues,
     node = Node(node_id, private_key, is_miner, block_size, keys, queues)
 
     # Start the operation of the node
-    node.start_operation(timeout * 1000)
+    node.start_operation(timeout)
 
 
 if __name__ == '__main__':
     num_nodes = int(sys.argv[1])
     block_size = int(sys.argv[2])
     timeout = int(sys.argv[3])
-    num_miners = 5
+    num_miners = 2
 
     # Attach a queue for each node
     queues = []

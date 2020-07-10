@@ -28,11 +28,17 @@ class Blockchain:
         Returns:
             Object: None if not valid, otherwise returns the next block
         """
-        # Validate the hash
+        # Verify if the block can be added on top of chain
+        if self.last_hash != blk['prev_hash']:
+            return None
+
+        # Verify if POW done on the block
         block_header = ''.join(
             [str(blk['nonce']), blk['prev_hash'], blk['merkle_root']])
         block_hash = SHA.new(block_header.encode('utf-8')).hexdigest()
-        if not block_hash.startswith('0' * self.difficulty):
+
+        target = 2**(160 - self.difficulty)
+        if int(block_hash, 16) > target:
             return None
 
         # Validate the transactions in the block, by re-constructing the merkle tree
@@ -71,12 +77,20 @@ class Blockchain:
 
         Args:
             block (string): Digitally signed JSON dump of the transaction
+        
+        Returns:
+            boolean: True if block could be added.
         """
         blk = json.loads(block)['blk']
         next_block = self.validate_block(blk)
 
         if next_block:
+            # Add block and update last hash
+            self.last_hash = next_block.get_hash()
             self.chain.append(next_block)
+            return True
+
+        return False
 
     def add_transaction(self, transaction):
         """Validate the transaction and add it to the unconfirmed block
@@ -85,7 +99,7 @@ class Blockchain:
             transaction (string): Digitally signed JSON dump of the transaction
         
         Returns:
-            Block: the newly created block
+            boolean: whether the Blockchain is ready for mining
         """
         # Validate the transaction
         tx = json.loads(transaction)['tx']
@@ -94,12 +108,10 @@ class Blockchain:
         if is_legal:
             self.transactions.append(tx)
             if len(self.transactions) == self.block_length:
-                next_block = self.proof_of_work()
-                self.chain.append(next_block)
-                return next_block
+                return True
 
         # No block to add yet
-        return None
+        return False
 
     def proof_of_work(self):
         """Compute the proof of work of the accumulated transactions
@@ -107,12 +119,11 @@ class Blockchain:
         Returns:
             Block: The created block along with POW
         """
-        print('Starting POW')
-        block = Block(self.transactions, 2, self.last_hash)
+        block = Block(self.transactions[:self.block_length], 2, self.last_hash)
+        self.transactions = self.transactions[self.block_length:]
 
         max_nonce = 2**32
         target = 2**(160 - self.difficulty)
-        print(target)
 
         # Compute the nonce of the block
         computed_hash = block.compute_hash()
@@ -120,5 +131,4 @@ class Blockchain:
             block.nonce += 1
             computed_hash = block.compute_hash()
 
-        print('Found nonce. Hash: ' + computed_hash)
         return block

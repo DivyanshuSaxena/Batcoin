@@ -11,7 +11,7 @@ from datetime import datetime
 from block import *
 from blockchain import *
 
-debug_level = 'debug'
+debug_level = 'info'
 
 
 def print_level(dl, node_id, string):
@@ -110,7 +110,7 @@ class Node:
         """Start operation of the blockchain node and end at timeout
 
         Args:
-            timeout (int): Time for which the node runs (in ms)
+            timeout (int): Time for which the node runs (in seconds)
         """
         print_level('basic', self.id, 'Operation started')
 
@@ -119,26 +119,40 @@ class Node:
 
         # Start with initial balance
         last_transaction = start_time
-        self.transaction_to_self('INIT')
+        transaction = self.transaction_to_self('INIT')
+        self.__node_stub('TRANSACTION', transaction)
 
         while curr_time - start_time < timeout:
             # Read from the queue
-            obj = self.queues[self.id].get()
-            if self.authenticate(obj):
-                if obj['message'] == 'TRANSACTION':
-                    next_block = self.bc.add_transaction(obj['pl'])
-                    if next_block:
-                        # Digitally sign and then, broadcast block
-                        block = self.__sign('BLOCK', next_block.to_json())
-                        self.__node_stub('BLOCK', block)
-                else:
-                    # Received a mined block from another node.
-                    self.bc.add_block(obj['pl'])
+            try:
+                obj = self.queues[self.id].get(False, timeout=1)
+                print_level('debug', self.id,
+                            'Received message from node ' + str(obj['sender']))
+                if self.authenticate(obj):
+                    if obj['message'] == 'TRANSACTION':
+                        print_level('debug', self.id, 'Received TRANSACTION')
+                        # bc.add_transaction returns if the current blockchain is ready for mining.
+                        mine_ready = self.bc.add_transaction(obj['pl'])
+                        if mine_ready and self.is_miner:
+                            print_level('debug', self.id, 'Ready for mining')
+                            next_block = self.mine()
+                            self.__node_stub('BLOCK', next_block)
+                    else:
+                        # Received a mined block from another node.
+                        print_level('debug', self.id, 'Received BLOCK')
+                        result = self.bc.add_block(obj['pl'])
+                        print_level(
+                            'debug', self.id, 'Add BLOCK from ' +
+                            str(obj['sender']) + ' result: ' + str(result))
+            except:
+                pass
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
-            if curr_time - last_transaction > 1000:
-                transaction = generate()
+            if curr_time - last_transaction > 1:
+                print_level('debug', self.id,
+                            'Ready to send another transaction')
+                transaction = self.generate()
                 last_transaction = curr_time
 
                 # Broadcast transaction
@@ -154,6 +168,9 @@ class Node:
         Args:
             tx_type (str): INIT/TRANSFER/MINE
             amt (int, optional): Amount. Defaults to 0.
+
+        Returns:
+            str: JSON dump of digitally signed transaction
         """
         if tx_type == 'INIT':
             amount = self.bc.init_amt
@@ -170,8 +187,7 @@ class Node:
             "timestamp": str(timestamp)
         }
 
-        transaction = self.__sign('TRANSACTION', tx)
-        self.__node_stub('TRANSACTION', transaction)
+        return self.__sign('TRANSACTION', tx)
 
     def generate(self):
         """Return a newly created transaction
@@ -204,9 +220,6 @@ class Node:
         sender_node = obj['sender']
         pl_string = obj['pl']
 
-        print_level('debug', self.id,
-                    'Received from ' + str(sender_node) + ': ' + pl_string)
-
         sender_key = self.__get_key(sender_node)
         key_obj = RSA.importKey(sender_key)
         payload = json.loads(pl_string)
@@ -232,3 +245,21 @@ class Node:
         # Neither is the object an authentic block nor a transaction
         print_level('debug', self.id, 'Message unauthenticated')
         return False
+
+    def mine(self):
+        """Mine the transactions accumulated until now. Called by Miner nodes.
+
+        Returns:
+            str: JSON dump of digitally signed block
+        """
+        # Generate a transaction to self as a reward for mining
+        reward_tx = self.transaction_to_self('MINE')
+        self.bc.add_transaction(reward_tx)
+
+        print_level('info', self.id, 'Starting POW for new block')
+        next_block = self.bc.proof_of_work()
+
+        print_level('info', self.id,
+                    'Found nonce. Hash: ' + next_block.get_hash())
+        block_json = next_block.to_json()
+        return self.__sign('BLOCK', block_json)
