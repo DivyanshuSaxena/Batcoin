@@ -244,6 +244,7 @@ class Node:
         timestamp = datetime.now()
         tx = {
             "type": tx_type,
+            "sender": self.id,
             "receiver": receiver_key,
             "amount": amount,
             "timestamp": str(timestamp)
@@ -263,6 +264,7 @@ class Node:
         timestamp = datetime.now()
         tx = {
             "type": 'TRANSFER',
+            "sender": self.id,
             "receiver": receiver_key,
             "amount": amount,
             "timestamp": str(timestamp)
