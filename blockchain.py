@@ -118,14 +118,19 @@ class Blockchain:
         # No block to add yet
         return False
 
-    def proof_of_work(self):
+    def proof_of_work(self, reward_tx):
         """Compute the proof of work of the accumulated transactions
+
+        Args:
+            reward_tx (string): Digitally signed JSON of the reward transaction
 
         Returns:
             Block: The created block along with POW
         """
-        block = Block(self.transactions[:self.block_length], 2, self.last_hash)
+        transactions = self.transactions[:self.block_length]
         self.transactions = self.transactions[self.block_length:]
+        transactions.append(reward_tx)
+        block = Block(transactions, 2, self.last_hash)
 
         max_nonce = 2**32
         target = 2**(160 - self.difficulty)

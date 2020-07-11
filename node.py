@@ -36,8 +36,15 @@ def print_level(dl, node_id, string):
 
 
 class Node:
-    def __init__(self, node_id, private_key, is_miner, block_size, keys,
-                 queues):
+    def __init__(self,
+                 node_id,
+                 private_key,
+                 is_miner,
+                 block_size,
+                 keys,
+                 queues,
+                 is_dishonest=False,
+                 dishonest_master=-1):
         """Node Ctor
 
         Args:
@@ -47,13 +54,18 @@ class Node:
             block_size (int): Number of transactions in a single block
             keys (multiprocessing.Array[str]): List of public keys for all nodes
             queues (List): List of Queues for each node on the network
+            is_dishonest (bool, optional): If the node colludes with the dishonest master. Defaults to False.
+            dishonest_master (int, optional): Node Id of the dishonest master. Defaults to -1.
         """
         self.id = node_id
         self.private_key = private_key
         self.is_miner = is_miner
+        self.is_dishonest = is_dishonest
+        self.dishonest_master = dishonest_master
         self.keys = keys
         self.queues = queues
         self.bc = Blockchain(block_size, difficulty=2)
+        print_level('basic', self.id, 'Dishonest: ' + str(self.is_dishonest))
 
         # Initialize log file
         log_dir = './logs/'
@@ -169,7 +181,9 @@ class Node:
                             print_level('debug', self.id, 'Ready for mining')
                             next_block = self.mine()
                             self.__node_stub('BLOCK', next_block)
-                    else:
+                    elif (not self.is_dishonest) or (
+                            self.is_dishonest
+                            and obj['sender'] == self.dishonest_master):
                         # Received a mined block from another node.
                         print_level('debug', self.id, 'Received BLOCK')
                         result = self.bc.add_block(obj['pl'])
@@ -238,7 +252,7 @@ class Node:
         amount = random.randint(1, 10)
         timestamp = datetime.now()
         tx = {
-            "type": 'MINE',
+            "type": 'TRANSFER',
             "receiver": receiver_key,
             "amount": amount,
             "timestamp": str(timestamp)
@@ -291,13 +305,12 @@ class Node:
             str: JSON dump of digitally signed block
         """
         # Generate a transaction to self as a reward for mining
-        reward_tx = self.transaction_to_self('MINE')
-        self.bc.add_transaction(reward_tx)
+        tx_json = json.loads(self.transaction_to_self('MINE'))['tx']
 
-        print_level('info', self.id, 'Starting POW for new block')
-        next_block = self.bc.proof_of_work()
+        print_level('basic', self.id, 'Starting POW for new block')
+        next_block = self.bc.proof_of_work(tx_json)
 
-        print_level('info', self.id,
+        print_level('basic', self.id,
                     'Found nonce. Hash: ' + next_block.get_hash())
         block_json = next_block.to_json()
         return self.__sign('BLOCK', block_json)

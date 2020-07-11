@@ -4,6 +4,8 @@
 # 1: Number of nodes on the bitcoin network
 # 2: Block size to create the block
 # 3: Timeout (in seconds) after which nodes stop operation
+# 4: Number of miners in the blockchain system
+# 5: Number of dishonest nodes in the blockchain system
 
 import os
 import sys
@@ -35,10 +37,14 @@ def generate_wallet():
 
 
 def spawn_process(node_id, private_key, is_miner, block_size, keys, queues,
-                  timeout):
+                  is_dishonest, dishonest_master, timeout):
     """Spawn a new Node process. Arguments same as those required by Node ctor"""
     Crypto.Random.atfork()
-    node = Node(node_id, private_key, is_miner, block_size, keys, queues)
+    if is_dishonest:
+        node = Node(node_id, private_key, is_miner, block_size, keys, queues,
+                    is_dishonest, dishonest_master)
+    else:
+        node = Node(node_id, private_key, is_miner, block_size, keys, queues)
 
     # Start the operation of the node
     node.start_operation(timeout)
@@ -48,7 +54,13 @@ if __name__ == '__main__':
     num_nodes = int(sys.argv[1])
     block_size = int(sys.argv[2])
     timeout = int(sys.argv[3])
-    num_miners = 2
+    num_miners = int(sys.argv[4])
+    num_dishonest = int(sys.argv[5])
+    dishonest_master = 0 if num_dishonest > 0 else -1
+
+    # Check if input is valid:
+    if num_miners + num_dishonest > num_nodes:
+        print('Incorrect params: num_miners + num_dishonest <= num_nodes')
 
     # Attach a queue for each node
     queues = []
@@ -69,9 +81,13 @@ if __name__ == '__main__':
     ])
 
     for node_id in range(num_nodes):
+        is_miner = node_id < num_miners
+        is_dishonest = (num_dishonest > 0 and node_id == 0) or (
+            node_id >= num_miners and node_id - num_miners + 1 < num_dishonest)
         p = Process(target=spawn_process,
-                    args=(node_id, keys[node_id][0], node_id < num_miners,
-                          block_size, public_keys, queues, timeout))
+                    args=(node_id, keys[node_id][0], is_miner, block_size,
+                          public_keys, queues, is_dishonest, dishonest_master,
+                          timeout))
         processes.append(p)
         p.start()
 
