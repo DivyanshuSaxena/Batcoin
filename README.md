@@ -7,8 +7,19 @@ Custom cryptocurrency implementation using Python
 Use the `main.py` file to spawn nodes, generate wallet key-pairs, share public keys, and initial transactions.
 
 ```console
->>> python main.py <num-nodes> <block-size> <timeout-in-seconds>
+>>> python main.py <num-nodes> <block-size> <timeout-in-seconds> <num-miners> <num-dishonest-nodes>
 ```
+
+Sample Usage:
+
+```console
+>>> python main.py 4 4 10 2 1
+```
+
+### Dishonest Nodes
+
+The number of dishonest nodes can be set using Command Line Interface. The dishonest nodes, collude to agree upon the history mined by a single master.
+By default, node 0 is labelled as the Dishonest Master Node. Only one node among all miners can be set as dishonest, in the current implementation. There can be as many dishonest, non-miner nodes however.
 
 ### Debugging
 
@@ -85,6 +96,6 @@ Further, each node gets to generate a transaction providing itself `initial_amou
 - [X] Create and broadcast blocks over network
 - [X] Validation of blocks
 - [ ] Implementation of UTXO transactions needed for validating transactions
-- [ ] Dishonest nodes
+- [X] Dishonest nodes
 - [ ] Smart Contracts
 - [ ] Experiments
