@@ -35,6 +35,10 @@ def print_level(dl, node_id, string):
             print('[DEBUG ' + str(node_id) + ']: ' + string)
 
 
+class IllegalBlockException(Exception):
+    pass
+
+
 class Node:
     def __init__(self,
                  node_id,
@@ -64,6 +68,7 @@ class Node:
         self.dishonest_master = dishonest_master
         self.keys = keys
         self.queues = queues
+        self.next_block = None  # Latest mined block
         self.bc = Blockchain(block_size, difficulty=2)
         print_level('basic', self.id, 'Dishonest: ' + str(self.is_dishonest))
 
@@ -179,8 +184,8 @@ class Node:
                         mine_ready = self.bc.add_transaction(obj['pl'])
                         if mine_ready and self.is_miner:
                             print_level('debug', self.id, 'Ready for mining')
-                            next_block = self.mine()
-                            self.__node_stub('BLOCK', next_block)
+                            # Make the block ready for transmission
+                            self.next_block = self.mine()
                     elif (not self.is_dishonest) or (
                             self.is_dishonest
                             and obj['sender'] == self.dishonest_master):
@@ -193,11 +198,16 @@ class Node:
 
                         # Log if any changes to blockchain state
                         if result:
+                            self.next_block = None
                             self.__log(
                                 'STATE',
                                 'Status after block added to blockchain')
+                        else:
+                            raise IllegalBlockException
             except:
-                pass
+                if self.next_block:
+                    print_level('info', self.id, 'Sending self-mined block')
+                    self.__node_stub('BLOCK', self.next_block)
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
