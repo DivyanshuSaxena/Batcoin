@@ -220,7 +220,8 @@ class Node:
                 last_transaction = curr_time
 
                 # Broadcast transaction
-                self.__node_stub('TRANSACTION', transaction)
+                if transaction is not None:
+                    self.__node_stub('TRANSACTION', transaction)
 
             curr_time = time.time()
         print('[INFO]: Completed execution for ' + str(self.id))
@@ -266,6 +267,8 @@ class Node:
         receiver_id = random.randint(0, len(self.keys) - 1)
         receiver_key = self.__get_key(receiver_id)
         unspentSelfTransactions, walletAmount = self.getUnspentSelfTransactions()
+        if walletAmount==0:
+            return None
         amount = random.randint(1, walletAmount)
         transactionsDigests, change= self.select_outputs_greedy(unspentSelfTransactions, amount)
         inputs = [x.tx_hash for x in transactionsDigests]
@@ -277,7 +280,7 @@ class Node:
             "amount": amount,
             "timestamp": str(timestamp),
             "receiver_id": receiver_id,
-            "change": 0,
+            "change": change,
             "inputs": inputs
         }
 
