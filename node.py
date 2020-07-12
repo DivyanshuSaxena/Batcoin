@@ -208,6 +208,8 @@ class Node:
                 if self.next_block:
                     print_level('info', self.id, 'Sending self-mined block')
                     self.__node_stub('BLOCK', self.next_block)
+                    # Reset next_block once sent
+                    self.next_block = None
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()

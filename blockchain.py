@@ -11,18 +11,84 @@ class Blockchain:
         self.init_amt = 10
         self.reward = 2
         self.transactions = []
+
+        # Chain format - (block, prev_id_block)
         self.chain = []
+        self.main = -1
+        # Orphans format - (block)
+        self.orphans = []
         self.create_genesis_block()
 
     def __str__(self):
         chain = 'Chain: \n'
-        blockchain = ',\n'.join([block.get_hash() for block in self.chain])
+        main_chain = []
+        curr_index = self.main
+        while (curr_index != -1):
+            main_chain.append(self.chain[curr_index][0])
+            curr_index = self.chain[curr_index][1]
+        blockchain = ',\n'.join([block.get_hash() for block in main_chain])
         return chain + blockchain
+
+    def __last_hash(self):
+        return self.chain[self.main][0].get_hash()
+
+    def __get_chain_length(self, index):
+        """Get length of chain traversing back from index
+
+        Args:
+            index (int)
+
+        Returns:
+            int: Length
+        """
+        curr_index = index
+        length = 0
+        while (curr_index != -1):
+            curr_index = self.chain[curr_index][1]
+            length += 1
+        return length
+
+    def __append_to_chain(self, block):
+        """Either append block to chain or add in orphans
+
+        Args:
+            block (Block)
+        """
+        # Special clause for first block addition
+        if self.main == -1:
+            print('Adding first block')
+            self.chain.append((block, -1))
+            self.main += 1
+        else:
+            found_parent = False
+            for index in range(len(self.chain)):
+                p_index = len(self.chain) - index - 1
+                parent = self.chain[p_index][0]
+                if parent.get_hash() == block.prev_hash:
+                    self.chain.append((block, p_index))
+                    if p_index == self.main:
+                        self.main += 1
+                    else:
+                        # Check if the length of new branch is more, swap branch
+                        if self.__get_chain_length(
+                                self.main) < self.__get_chain_length(
+                                    len(self.chain) - 1):
+                            self.main = len(self.chain) - 1
+                    found_parent = True
+                    break
+            if not found_parent:
+                # Add in orphan pool
+                self.orphans.append(block)
+            else:
+                # Check if some block in orphan pool is a child
+                for orphan in self.orphans:
+                    if block.get_hash() == orphan.get_hash():
+                        self.__append_to_chain(orphan)
+                        break
 
     def create_genesis_block(self):
         first_block = Block.genesis_block()
-        self.last_hash = first_block.get_hash()
-        self.chain.append(first_block)
+        self.__append_to_chain(first_block)
 
     def validate_block(self, blk):
         """Validate the block JSON
@@ -33,10 +99,6 @@ class Blockchain:
         Returns:
             Object: None if not valid, otherwise returns the next block
         """
-        # Verify if the block can be added on top of chain
-        if self.last_hash != blk['prev_hash']:
-            return None
-
         # Verify if POW done on the block
         block_header = ''.join(
             [str(blk['nonce']), blk['prev_hash'], blk['merkle_root']])
@@ -91,8 +153,7 @@ class Blockchain:
 
         if next_block:
             # Add block and update last hash
-            self.last_hash = next_block.get_hash()
-            self.chain.append(next_block)
+            self.__append_to_chain(next_block)
             return True
 
         return False
@@ -130,7 +191,7 @@ class Blockchain:
         transactions = self.transactions[:self.block_length]
         self.transactions = self.transactions[self.block_length:]
         transactions.append(reward_tx)
-        block = Block(transactions, 2, self.last_hash)
+        block = Block(transactions, 2, self.__last_hash())
 
         max_nonce = 2**32
         target = 2**(160 - self.difficulty)

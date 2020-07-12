@@ -14,6 +14,7 @@ class Block:
             prev_hash (str): Hash of the previous block on the blockchain.
         """
         self.transactions = transactions
+        self.hash = None
         self.prev_hash = prev_hash
         self.nonce = 0
         self.merkle = MerkleTree(arity)

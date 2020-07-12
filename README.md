@@ -64,7 +64,7 @@ Any newly generated transaction is added to the unconfirmed pool of transactions
 
 ### Validating transactions
 
-Each transaction sends a certain node from one wallet to another. Each node, independently keeps a list of wallets and their balances, and verifies the transaction based on that list.
+Each transaction sends a certain amount from one wallet to another. Each node, independently keeps a list of wallets and their balances, and verifies the transaction based on that list.
 
 ## Blocks
 
@@ -90,6 +90,14 @@ The blocks for Batcoin follow the following message format:
 At the initialization of the blockchain protocol, each node generates a genesis block. Since the contents of the genesis block are same, irrespective of the node, genesis blocks with the exact same hashes are generated in all of the nodes.
 
 Further, each node gets to generate a transaction providing itself `initial_amount` of coins at the start for doing transactions.
+
+## Consensus
+
+The blockchain maintains consensus based on a **longest chain rule** protocol. Whether a consensus has been reached or not, can be checked using the following command
+
+```console
+>>> python find_forking.py <num-nodes>
+```
 
 ## Todo
 
