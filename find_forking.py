@@ -16,9 +16,17 @@ for node in range(num_nodes):
     content = [x.strip() for x in content]
     rev_content = content[::-1]
     rev_index = rev_content.index('Chain:')
-    rev_chain = rev_content[1:rev_index]
-    straight_chain = rev_chain[::-1]
-    final_chain = straight_chain
+
+    curr_index = len(content) - rev_index
+    blk_hash = content[curr_index]
+    final_chain = [blk_hash]
+
+    while blk_hash.endswith(','):
+        curr_index += 1
+        blk_hash = content[curr_index]
+        final_chain.append(blk_hash)
+
+    final_chain = final_chain[::-1]
     print('Chain length for node ' + str(node) + ': ' + str(len(final_chain)))
     max_length = max(max_length, len(final_chain))
     chains.append(final_chain)

@@ -12,7 +12,7 @@ from datetime import datetime
 from block import *
 from blockchain import *
 
-debug_level = 'info'
+debug_level = 'basic'
 
 
 def print_level(dl, node_id, string):
@@ -69,7 +69,7 @@ class Node:
         self.keys = keys
         self.queues = queues
         self.next_block = None  # Latest mined block
-        self.bc = Blockchain(block_size, difficulty=2)
+        self.bc = Blockchain(block_size, difficulty=16)
         print_level('basic', self.id, 'Dishonest: ' + str(self.is_dishonest))
 
         # Initialize log file
@@ -213,7 +213,7 @@ class Node:
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
-            if curr_time - last_transaction > 1:
+            if curr_time - last_transaction > 0.2:
                 print_level('debug', self.id,
                             'Ready to send another transaction')
                 transaction = self.generate()
@@ -223,6 +223,12 @@ class Node:
                 self.__node_stub('TRANSACTION', transaction)
 
             curr_time = time.time()
+        while not self.queues[self.id].empty():
+            try:
+                self.queues[self.id].get(timeout=0.001)
+            except:
+                pass
+        self.queues[self.id].close()
         print('[INFO]: Completed execution for ' + str(self.id))
 
     def transaction_to_self(self, tx_type, amt=0):
