@@ -18,6 +18,7 @@ class Blockchain:
         # Orphans format - (block)
         self.orphans = []
         self.create_genesis_block()
+        self.transactionsDict = {}
 
     def __str__(self):
         chain = 'Chain: \n'
@@ -58,6 +59,8 @@ class Blockchain:
         if self.main == -1:
             print('Adding first block')
             self.chain.append((block, -1))
+            areValidTransaction = self.updateTrasactionsFromBlock(block)
+            # Todo take action if not valid transactions
             self.main += 1
         else:
             found_parent = False
@@ -66,10 +69,13 @@ class Blockchain:
                 parent = self.chain[p_index][0]
                 if parent.get_hash() == block.prev_hash:
                     self.chain.append((block, p_index))
+                    areValidTransaction = self.updateTrasactionsFromBlock(block)
+                    # Todo take action if not valid transactions
                     if p_index == self.main:
                         self.main += 1
                     else:
                         # Check if the length of new branch is more, swap branch
+                        # Todo I fear we are not changing branches here
                         if self.__get_chain_length(
                                 self.main) < self.__get_chain_length(
                                     len(self.chain) - 1):
@@ -173,6 +179,13 @@ class Blockchain:
 
         if is_legal:
             self.transactions.append(tx)
+
+            transactionDigest = SHA.new(json.dumps(tx, sort_keys=True).encode('utf-8')).hexdigest()
+            # list of receivers with (nodeid, amount, isSpent, isConfirmed)
+            # Todo Currently change is confirmed
+            receivers = [(tx["receiver_id"],tx["amount"],False, False), (tx["sender"], tx["change"], False, False)]
+            self.transactionsDict[transactionDigest] = {"data": transaction, "receiverData":receivers}
+
             if len(self.transactions) == self.block_length:
                 return True
 
@@ -203,3 +216,36 @@ class Blockchain:
             computed_hash = block.compute_hash()
 
         return block
+
+    def updateTrasactionsFromBlock(self, block):
+        for transaction in block.transactions:
+            transactionInputs = transaction["inputs"]
+            transactionSender = transaction["sender"]
+            for transactionInput in transactionInputs:
+                for i in range(self.transactionsDict[transactionInput]["receiverData"]):
+                    nodeId = self.transactionsDict[transactionInput]["receiverData"][i][0]
+                    if nodeId==transactionSender:
+                        # Todo check if already spent and other checks like if the referred transaction is confirmed
+                        #  IMPORTANT
+                        # Marking the transaction as spent
+                        self.transactionsDict[transactionInput]["receiverData"][i][2] = True
+
+            transactionDigest = SHA.new(json.dumps(transaction, sort_keys=True).encode('utf-8')).hexdigest()
+            print("log log ", self.transactionsDict[transactionDigest]["receiverData"])
+            numReceivers = len(self.transactionsDict[transactionDigest]["receiverData"])
+            print("numReceivers is ", numReceivers)
+            for index in range(numReceivers):
+                #Confirming the transactions
+                print("even entering here?, ",index)
+                print("it was ", self.transactionsDict[transactionDigest]["receiverData"][index][3])
+                self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
+                # self.blankCall(transactionDigest, index)
+                print("done--------")
+            print("GOL GOL ", self.transactionsDict[transactionDigest]["receiverData"])
+            # Todo enforce that inputs amount is greater than output + change for txtype Transfer
+
+        return True
+    def blankCall(self, transactionDigest, index):
+        print("yo")
+        self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
+        return

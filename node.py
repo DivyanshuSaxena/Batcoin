@@ -216,11 +216,11 @@ class Node:
             if curr_time - last_transaction > 1:
                 print_level('debug', self.id,
                             'Ready to send another transaction')
-                transaction = self.generate()
+                # transaction = self.generate()
                 last_transaction = curr_time
 
                 # Broadcast transaction
-                self.__node_stub('TRANSACTION', transaction)
+                # self.__node_stub('TRANSACTION', transaction)
 
             curr_time = time.time()
         print('[INFO]: Completed execution for ' + str(self.id))
@@ -249,7 +249,10 @@ class Node:
             "sender": self.id,
             "receiver": receiver_key,
             "amount": amount,
-            "timestamp": str(timestamp)
+            "timestamp": str(timestamp),
+            "receiver_id": self.id,
+            "change": 0,
+            "inputs": []
         }
 
         return self.__sign('TRANSACTION', tx)
@@ -262,14 +265,21 @@ class Node:
         """
         receiver_id = random.randint(0, len(self.keys) - 1)
         receiver_key = self.__get_key(receiver_id)
-        amount = random.randint(1, 10)
+        unspentSelfTransactions, walletAmount = self.getUnspentSelfTransactions()
+        amount = random.randint(1, walletAmount)
+        transactionsDigests, change= self.select_outputs_greedy(unspentSelfTransactions, amount)
+        inputs = [x.tx_hash for x in transactionsDigests]
         timestamp = datetime.now()
         tx = {
             "type": 'TRANSFER',
             "sender": self.id,
             "receiver": receiver_key,
             "amount": amount,
-            "timestamp": str(timestamp)
+            "timestamp": str(timestamp),
+            "receiver_id": receiver_id,
+            "change": 0,
+            # Todo fill inputs
+            "inputs": inputs
         }
 
         return self.__sign('TRANSACTION', tx)
@@ -328,3 +338,60 @@ class Node:
                     'Found nonce. Hash: ' + next_block.get_hash())
         block_json = next_block.to_json()
         return self.__sign('BLOCK', block_json)
+
+    def getUnspentSelfTransactions(self):
+        answer = []
+        sumAmount = 0
+        for transactionHash in self.bc.transactionsDict:
+            transactionReceiversData = self.bc.transactionsDict[transactionHash]
+            for transactionReceiverData in transactionReceiversData:
+                receiver_id = transactionReceiverData[0]
+                amount = transactionReceiverData[1]
+                isSpent = transactionReceiverData[2]
+                isConfirmed = transactionReceiverData[3]
+
+                if receiver_id==self.id and amount!=0 and isConfirmed and (not isSpent):
+                    output_info = OutputInfo(transactionHash, amount)
+                    answer.append(output_info)
+                    sumAmount += amount
+        return answer, sumAmount
+
+    def select_outputs_greedy(self, unspent, min_value):
+        # Taken from https://www.oreilly.com/library/view/mastering-bitcoin/9781491902639/ch05.html
+        # Fail if empty.
+        if not unspent:
+            return None
+        # Partition into 2 lists.
+        lessers = [utxo for utxo in unspent if utxo.value < min_value]
+        greaters = [utxo for utxo in unspent if utxo.value >= min_value]
+        key_func = lambda utxo: utxo.value
+        if greaters:
+            # Not-empty. Find the smallest greater.
+            min_greater = min(greaters)
+            change = min_greater.value - min_value
+            return [min_greater], change
+        # Not found in greaters. Try several lessers instead.
+        # Rearrange them from biggest to smallest. We want to use the least
+        # amount of inputs as possible.
+        lessers.sort(key=key_func, reverse=True)
+        result = []
+        accum = 0
+        for utxo in lessers:
+            result.append(utxo)
+            accum += utxo.value
+            if accum >= min_value:
+                change = accum - min_value
+                return result, "Change: %d Satoshis" % change
+        # No results found.
+        return None, 0
+
+
+class OutputInfo:
+
+    def __init__(self, tx_hash, value):
+        self.tx_hash = tx_hash
+        self.value = value
+
+    def __repr__(self):
+        return "<%s: with %s Satoshis>" % (self.tx_hash,
+                                             self.value)
