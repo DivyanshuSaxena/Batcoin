@@ -216,11 +216,11 @@ class Node:
             if curr_time - last_transaction > 1:
                 print_level('debug', self.id,
                             'Ready to send another transaction')
-                # transaction = self.generate()
+                transaction = self.generate()
                 last_transaction = curr_time
 
                 # Broadcast transaction
-                # self.__node_stub('TRANSACTION', transaction)
+                self.__node_stub('TRANSACTION', transaction)
 
             curr_time = time.time()
         print('[INFO]: Completed execution for ' + str(self.id))
@@ -278,7 +278,6 @@ class Node:
             "timestamp": str(timestamp),
             "receiver_id": receiver_id,
             "change": 0,
-            # Todo fill inputs
             "inputs": inputs
         }
 
@@ -343,7 +342,7 @@ class Node:
         answer = []
         sumAmount = 0
         for transactionHash in self.bc.transactionsDict:
-            transactionReceiversData = self.bc.transactionsDict[transactionHash]
+            transactionReceiversData = self.bc.transactionsDict[transactionHash]["receiverData"]
             for transactionReceiverData in transactionReceiversData:
                 receiver_id = transactionReceiverData[0]
                 amount = transactionReceiverData[1]

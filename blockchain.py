@@ -183,7 +183,7 @@ class Blockchain:
             transactionDigest = SHA.new(json.dumps(tx, sort_keys=True).encode('utf-8')).hexdigest()
             # list of receivers with (nodeid, amount, isSpent, isConfirmed)
             # Todo Currently change is confirmed
-            receivers = [(tx["receiver_id"],tx["amount"],False, False), (tx["sender"], tx["change"], False, False)]
+            receivers = [[tx["receiver_id"],tx["amount"],False, False], [tx["sender"], tx["change"], False, False]]
             self.transactionsDict[transactionDigest] = {"data": transaction, "receiverData":receivers}
 
             if len(self.transactions) == self.block_length:
@@ -231,21 +231,10 @@ class Blockchain:
                         self.transactionsDict[transactionInput]["receiverData"][i][2] = True
 
             transactionDigest = SHA.new(json.dumps(transaction, sort_keys=True).encode('utf-8')).hexdigest()
-            print("log log ", self.transactionsDict[transactionDigest]["receiverData"])
             numReceivers = len(self.transactionsDict[transactionDigest]["receiverData"])
-            print("numReceivers is ", numReceivers)
             for index in range(numReceivers):
                 #Confirming the transactions
-                print("even entering here?, ",index)
-                print("it was ", self.transactionsDict[transactionDigest]["receiverData"][index][3])
                 self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
-                # self.blankCall(transactionDigest, index)
-                print("done--------")
-            print("GOL GOL ", self.transactionsDict[transactionDigest]["receiverData"])
             # Todo enforce that inputs amount is greater than output + change for txtype Transfer
 
         return True
-    def blankCall(self, transactionDigest, index):
-        print("yo")
-        self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
-        return
