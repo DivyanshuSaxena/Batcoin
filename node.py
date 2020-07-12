@@ -11,6 +11,7 @@ from Crypto.Signature import PKCS1_v1_5
 from datetime import datetime
 from block import *
 from blockchain import *
+from operator import attrgetter
 
 debug_level = 'basic'
 
@@ -348,50 +349,70 @@ class Node:
         return self.__sign('BLOCK', block_json)
 
     def getUnspentSelfTransactions(self):
-        answer = []
-        sumAmount = 0
-        for transactionHash in self.bc.transactionsDict:
-            transactionReceiversData = self.bc.transactionsDict[transactionHash]["receiverData"]
-            for transactionReceiverData in transactionReceiversData:
-                receiver_id = transactionReceiverData[0]
-                amount = transactionReceiverData[1]
-                isSpent = transactionReceiverData[2]
-                isConfirmed = transactionReceiverData[3]
+        try:
+            answer = []
+            sumAmount = 0
+            for transactionHash in self.bc.transactionsDict:
+                transactionReceiversData = self.bc.transactionsDict[transactionHash]["receiverData"]
+                for transactionReceiverData in transactionReceiversData:
+                    receiver_id = transactionReceiverData[0]
+                    amount = transactionReceiverData[1]
+                    isSpent = transactionReceiverData[2]
+                    isConfirmed = transactionReceiverData[3]
 
-                if receiver_id==self.id and amount!=0 and isConfirmed and (not isSpent):
-                    output_info = OutputInfo(transactionHash, amount)
-                    answer.append(output_info)
-                    sumAmount += amount
-        return answer, sumAmount
+                    if receiver_id==self.id and amount!=0 and isConfirmed and (not isSpent):
+                        output_info = OutputInfo(transactionHash, amount)
+                        answer.append(output_info)
+                        sumAmount += amount
+            return answer, sumAmount
+        except Exception as e:
+            print(os.getpid(), "SOME ERROR OCCURED")
+            print(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            # print(os.pid(), "transactionIndex, ", transactionIndex, "type ", transaction["type"])
+            print("exiting exception")
+            return None
 
     def select_outputs_greedy(self, unspent, min_value):
-        # Taken from https://www.oreilly.com/library/view/mastering-bitcoin/9781491902639/ch05.html
-        # Fail if empty.
-        if not unspent:
+        try:
+            # Taken from https://www.oreilly.com/library/view/mastering-bitcoin/9781491902639/ch05.html
+            # Fail if empty.
+            if not unspent:
+                return None
+            # Partition into 2 lists.
+            lessers = [utxo for utxo in unspent if utxo.value < min_value]
+            greaters = [utxo for utxo in unspent if utxo.value >= min_value]
+            key_func = lambda utxo: utxo.value
+            if greaters:
+                # Not-empty. Find the smallest greater.
+                min_greater = min(greaters,key=attrgetter('value'))
+                change = min_greater.value - min_value
+                return [min_greater], change
+            # Not found in greaters. Try several lessers instead.
+            # Rearrange them from biggest to smallest. We want to use the least
+            # amount of inputs as possible.
+            lessers.sort(key=key_func, reverse=True)
+            result = []
+            accum = 0
+            for utxo in lessers:
+                result.append(utxo)
+                accum += utxo.value
+                if accum >= min_value:
+                    change = accum - min_value
+                    return result, change
+            # No results found.
+            return None, 0
+        except Exception as e:
+            print(os.getpid(), "SOME ERROR OCCURED")
+            print(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            # print(os.pid(), "transactionIndex, ", transactionIndex, "type ", transaction["type"])
+            print("exiting exception")
             return None
-        # Partition into 2 lists.
-        lessers = [utxo for utxo in unspent if utxo.value < min_value]
-        greaters = [utxo for utxo in unspent if utxo.value >= min_value]
-        key_func = lambda utxo: utxo.value
-        if greaters:
-            # Not-empty. Find the smallest greater.
-            min_greater = min(greaters)
-            change = min_greater.value - min_value
-            return [min_greater], change
-        # Not found in greaters. Try several lessers instead.
-        # Rearrange them from biggest to smallest. We want to use the least
-        # amount of inputs as possible.
-        lessers.sort(key=key_func, reverse=True)
-        result = []
-        accum = 0
-        for utxo in lessers:
-            result.append(utxo)
-            accum += utxo.value
-            if accum >= min_value:
-                change = accum - min_value
-                return result, "Change: %d Satoshis" % change
-        # No results found.
-        return None, 0
 
 
 class OutputInfo:
@@ -403,3 +424,5 @@ class OutputInfo:
     def __repr__(self):
         return "<%s: with %s Satoshis>" % (self.tx_hash,
                                              self.value)
+    # def __le__(self, other):
+    #     return self.value < other.value

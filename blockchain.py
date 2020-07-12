@@ -2,6 +2,8 @@
 import json
 from block import *
 from datetime import datetime
+import os
+import sys
 
 
 class Blockchain:
@@ -120,6 +122,10 @@ class Blockchain:
         next_block = Block(blk['transactions'], blk['arity'], blk['prev_hash'])
         if next_block.merkle.root.value == blk['merkle_root']:
             next_block.set_nonce(blk['nonce'])
+
+            areUnderlyingTransactionsValid = self.validate_transactions_from_block(next_block)
+            if areUnderlyingTransactionsValid is None:
+                return None
             return next_block
 
         # Validation failed
@@ -183,7 +189,7 @@ class Blockchain:
             transactionDigest = SHA.new(json.dumps(tx, sort_keys=True).encode('utf-8')).hexdigest()
             # list of receivers with (nodeid, amount, isSpent, isConfirmed)
             # Todo Currently change is confirmed
-            receivers = [[tx["receiver_id"],tx["amount"],False, False], [tx["sender"], tx["change"], False, False]]
+            receivers = [[tx["receiver_id"],tx["amount"],False, True], [tx["sender"], tx["change"], False, True]]
             self.transactionsDict[transactionDigest] = {"data": transaction, "receiverData":receivers}
 
             if len(self.transactions) == self.block_length:
@@ -218,23 +224,70 @@ class Blockchain:
         return block
 
     def updateTrasactionsFromBlock(self, block):
-        for transaction in block.transactions:
-            transactionInputs = transaction["inputs"]
-            transactionSender = transaction["sender"]
-            for transactionInput in transactionInputs:
-                for i in range(self.transactionsDict[transactionInput]["receiverData"]):
-                    nodeId = self.transactionsDict[transactionInput]["receiverData"][i][0]
-                    if nodeId==transactionSender:
-                        # Todo check if already spent and other checks like if the referred transaction is confirmed
-                        #  IMPORTANT
-                        # Marking the transaction as spent
-                        self.transactionsDict[transactionInput]["receiverData"][i][2] = True
+        try:
+            transactionIndex = 0
+            for transaction in block.transactions:
+                transactionInputs = transaction["inputs"]
+                transactionSender = transaction["sender"]
+                for transactionInput in transactionInputs:
+                    for i in range(len(self.transactionsDict[transactionInput]["receiverData"])):
+                        nodeId = self.transactionsDict[transactionInput]["receiverData"][i][0]
+                        if nodeId==transactionSender:
+                            # Todo check if already spent and other checks like if the referred transaction is confirmed
+                            #  IMPORTANT
+                            # Marking the transaction as spent
+                            self.transactionsDict[transactionInput]["receiverData"][i][2] = True
 
-            transactionDigest = SHA.new(json.dumps(transaction, sort_keys=True).encode('utf-8')).hexdigest()
-            numReceivers = len(self.transactionsDict[transactionDigest]["receiverData"])
-            for index in range(numReceivers):
-                #Confirming the transactions
-                self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
-            # Todo enforce that inputs amount is greater than output + change for txtype Transfer
+                # Uncomment below to validate transactions too
+                # transactionDigest = SHA.new(json.dumps(transaction, sort_keys=True).encode('utf-8')).hexdigest()
+                # numReceivers = len(self.transactionsDict[transactionDigest]["receiverData"])
+                # for index in range(numReceivers):
+                #     #Confirming the transactions
+                #     self.transactionsDict[transactionDigest]["receiverData"][index][3] = True
+                # Todo enforce that inputs amount is greater than output + change for txtype Transfer
+                transactionIndex +=1
+            return True
+        except Exception as e:
+            print(os.getpid() ,"SOME ERROR OCCURED")
+            print(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            # print(os.pid(), "transactionIndex, ", transactionIndex, "type ", transaction["type"])
+            print("exiting exception")
 
-        return True
+    def validate_transactions_from_block(self, block):
+        try:
+            transactionIndex = 0
+            for transaction in block.transactions:
+                transactionInputs = transaction["inputs"]
+                transactionSender = transaction["sender"]
+                for transactionInput in transactionInputs:
+                    for i in range(len(self.transactionsDict[transactionInput]["receiverData"])):
+                        nodeId = self.transactionsDict[transactionInput]["receiverData"][i][0]
+                        if nodeId==transactionSender:
+                            # Todo check if already spent and other checks like if the referred transaction is confirmed
+                            #  IMPORTANT
+                            # Marking the transaction as spent
+                            if self.transactionsDict[transactionInput]["receiverData"][i][2] is None:
+                                return None
+
+                # UnComment below to validate transactions
+                # transactionDigest = SHA.new(json.dumps(transaction, sort_keys=True).encode('utf-8')).hexdigest()
+                # numReceivers = len(self.transactionsDict[transactionDigest]["receiverData"])
+                # for index in range(numReceivers):
+                #     #Confirming the transactions
+                #     if self.transactionsDict[transactionDigest]["receiverData"][index][3] is None:
+                #         return None
+                # Todo enforce that inputs amount is greater than output + change for txtype Transfer
+                transactionIndex +=1
+            return True
+        except Exception as e:
+            print(os.getpid() ,"SOME ERROR OCCURED")
+            print(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            print("exiting exception")
+            return None
+
