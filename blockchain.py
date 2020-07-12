@@ -5,8 +5,9 @@ from datetime import datetime
 
 
 class Blockchain:
-    def __init__(self, block_size, difficulty):
+    def __init__(self, block_size, arity, difficulty):
         self.block_length = block_size
+        self.arity = arity
         self.difficulty = difficulty
         self.init_amt = 10
         self.reward = 2
@@ -20,7 +21,8 @@ class Blockchain:
         self.create_genesis_block()
 
     def __str__(self):
-        chain = 'Chain: \n'
+        chain = 'Total blocks in blockchain: ' + str(len(
+            self.chain)) + '\nChain: \n'
         main_chain = []
         curr_index = self.main
         while (curr_index != -1):
@@ -173,7 +175,7 @@ class Blockchain:
 
         if is_legal:
             self.transactions.append(tx)
-            if len(self.transactions) == self.block_length:
+            if len(self.transactions) >= self.block_length:
                 return True
 
         # No block to add yet
@@ -191,7 +193,7 @@ class Blockchain:
         transactions = self.transactions[:self.block_length]
         self.transactions = self.transactions[self.block_length:]
         transactions.append(reward_tx)
-        block = Block(transactions, 2, self.__last_hash())
+        block = Block(transactions, self.arity, self.__last_hash())
 
         max_nonce = 2**32
         target = 2**(160 - self.difficulty)

@@ -6,6 +6,8 @@
 # 3: Timeout (in seconds) after which nodes stop operation
 # 4: Number of miners in the blockchain system
 # 5: Number of dishonest nodes in the blockchain system
+# 6: Arity of Merkel Tree
+# 7: Difficulty of POW
 
 import os
 import sys
@@ -37,14 +39,15 @@ def generate_wallet():
 
 
 def spawn_process(node_id, private_key, is_miner, block_size, keys, queues,
-                  is_dishonest, dishonest_master, timeout):
+                  is_dishonest, dishonest_master, arity, difficulty, timeout):
     """Spawn a new Node process. Arguments same as those required by Node ctor"""
     Crypto.Random.atfork()
     if is_dishonest:
         node = Node(node_id, private_key, is_miner, block_size, keys, queues,
-                    is_dishonest, dishonest_master)
+                    arity, difficulty, is_dishonest, dishonest_master)
     else:
-        node = Node(node_id, private_key, is_miner, block_size, keys, queues)
+        node = Node(node_id, private_key, is_miner, block_size, keys, queues,
+                    arity, difficulty)
 
     # Start the operation of the node
     node.start_operation(timeout)
@@ -56,6 +59,8 @@ if __name__ == '__main__':
     timeout = int(sys.argv[3])
     num_miners = int(sys.argv[4])
     num_dishonest = int(sys.argv[5])
+    arity = int(sys.argv[6])
+    difficulty = int(sys.argv[7])
     dishonest_master = 0 if num_dishonest > 0 else -1
 
     # Check if input is valid:
@@ -87,12 +92,12 @@ if __name__ == '__main__':
         p = Process(target=spawn_process,
                     args=(node_id, keys[node_id][0], is_miner, block_size,
                           public_keys, queues, is_dishonest, dishonest_master,
-                          timeout))
+                          arity, difficulty, timeout))
         processes.append(p)
         p.start()
 
-    for p in processes:
-        p.join()
+    # for p in processes:
+    #     p.join()
 
     # Completed execution till `timeout` milliseconds
     print('[INFO]: Completed execution till `timeout` milliseconds')

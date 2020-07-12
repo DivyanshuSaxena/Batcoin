@@ -12,7 +12,7 @@ from datetime import datetime
 from block import *
 from blockchain import *
 
-debug_level = 'basic'
+debug_level = 'info'
 
 
 def print_level(dl, node_id, string):
@@ -39,6 +39,10 @@ class IllegalBlockException(Exception):
     pass
 
 
+class BlockWaitingException(Exception):
+    pass
+
+
 class Node:
     def __init__(self,
                  node_id,
@@ -47,6 +51,8 @@ class Node:
                  block_size,
                  keys,
                  queues,
+                 arity,
+                 difficulty,
                  is_dishonest=False,
                  dishonest_master=-1):
         """Node Ctor
@@ -69,7 +75,7 @@ class Node:
         self.keys = keys
         self.queues = queues
         self.next_block = None  # Latest mined block
-        self.bc = Blockchain(block_size, difficulty=16)
+        self.bc = Blockchain(block_size, arity, difficulty)
         print_level('basic', self.id, 'Dishonest: ' + str(self.is_dishonest))
 
         # Initialize log file
@@ -183,6 +189,8 @@ class Node:
                         # bc.add_transaction returns if the current blockchain is ready for mining.
                         mine_ready = self.bc.add_transaction(obj['pl'])
                         if mine_ready and self.is_miner:
+                            if self.next_block:
+                                raise BlockWaitingException
                             print_level('debug', self.id, 'Ready for mining')
                             # Make the block ready for transmission
                             self.next_block = self.mine()
@@ -213,7 +221,7 @@ class Node:
 
             # Generate transactions at the rate of 1 per second
             curr_time = time.time()
-            if curr_time - last_transaction > 0.2:
+            if curr_time - last_transaction > 1:
                 print_level('debug', self.id,
                             'Ready to send another transaction')
                 transaction = self.generate()
